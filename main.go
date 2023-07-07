@@ -3,7 +3,6 @@ package main
 import (
 	"context"
 	"fmt"
-	"log"
 	"os"
 	"os/exec"
 	"os/user"
@@ -17,19 +16,19 @@ import (
 func getCommandOutputWithGoCmd(bin string, args ...string) string {
 	c := cmd.NewCmd(bin, args...)
 	status := <-c.Start()
+	fmt.Println(status.Stdout)
 	out := strings.Join(status.Stdout, " ")
 	return out
 }
 
 func getCommandOutput(bin string, args ...string) string {
-	c := exec.Command(bin, args...)
-	stdout, err := c.Output()
-
+	cmd := exec.Command(bin, args...)
+	output, err := cmd.Output()
 	if err != nil {
-		log.Fatalf(err.Error())
+		panic(err)
 	}
-	return string(stdout)
 
+	return string(output)
 }
 
 func getEnv(name string, value ...string) string {
@@ -38,30 +37,37 @@ func getEnv(name string, value ...string) string {
 		if len(value) > 0 {
 			return value[0]
 		}
-		log.Fatalf(fmt.Sprintf("%s env missing!", name))
+		panic(fmt.Sprintf("%s env missing!", name))
 	}
 	return e
 }
 
+func getCommand(c ...string) (string, []string) {
+	return c[0], c[1:]
+}
+
 func getSha(name string) string {
+	var sha string
 	e := os.Getenv(name)
 	useGoCmd := os.Getenv("USE_GO_CMD")
-	var sha string
+	bin, args := getCommand("git", "rev-parse", "--short=8", "HEAD")
+	fmt.Println("args: ", args)
 	if e == "" {
 		currentUser, err := user.Current()
+		if err != nil {
+			panic(err)
+		}
 		currentTime := time.Now().Format("20060102150405")
 
-		if err != nil {
-			log.Fatalf(err.Error())
-		}
 		if useGoCmd == "1" {
-			sha = getCommandOutputWithGoCmd("git", "rev-parse", "--short=8", "HEAD")
-			return fmt.Sprintf("%s-%s-%s", currentUser.Username, sha, currentTime)
-
+			sha = getCommandOutputWithGoCmd(bin, args...)
 		} else {
-			sha = getCommandOutput("git", "rev-parse", "--short=8", "HEAD")
-			return fmt.Sprintf("%s-%s-%s", currentUser.Username, sha, currentTime)
+			sha = getCommandOutput(bin, args...)
 		}
+		out := fmt.Sprintf("%s-%s-%s", currentUser.Username, sha, currentTime)
+		fmt.Println("out: ", out)
+		return out
+
 	}
 	return e
 }
@@ -70,7 +76,7 @@ func main() {
 	ctx := context.Background()
 	client, err := dagger.Connect(ctx, dagger.WithLogOutput(os.Stdout))
 	if err != nil {
-		log.Fatal(err)
+		panic(err)
 	}
 	defer client.Close()
 
