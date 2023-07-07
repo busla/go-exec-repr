@@ -6,28 +6,21 @@ import (
 	"os"
 	"os/exec"
 	"os/user"
-	"strings"
 	"time"
 
 	"dagger.io/dagger"
-	"github.com/go-cmd/cmd"
 )
-
-func getCommandOutputWithGoCmd(bin string, args ...string) string {
-	c := cmd.NewCmd(bin, args...)
-	status := <-c.Start()
-	fmt.Println(status.Stdout)
-	out := strings.Join(status.Stdout, " ")
-	return out
-}
 
 func getCommandOutput(bin string, args ...string) string {
 	cmd := exec.Command(bin, args...)
+
 	output, err := cmd.Output()
 	if err != nil {
 		panic(err)
 	}
-
+	fmt.Print("out: ", output)
+	s := string([]byte{57, 102, 102, 48, 55, 53, 100, 98})
+	fmt.Println("bytestring: ", s)
 	return string(output)
 }
 
@@ -47,9 +40,7 @@ func getCommand(c ...string) (string, []string) {
 }
 
 func getSha(name string) string {
-	var sha string
 	e := os.Getenv(name)
-	useGoCmd := os.Getenv("USE_GO_CMD")
 	bin, args := getCommand("git", "rev-parse", "--short=8", "HEAD")
 	fmt.Println("args: ", args)
 	if e == "" {
@@ -58,12 +49,8 @@ func getSha(name string) string {
 			panic(err)
 		}
 		currentTime := time.Now().Format("20060102150405")
+		sha := getCommandOutput(bin, args...)
 
-		if useGoCmd == "1" {
-			sha = getCommandOutputWithGoCmd(bin, args...)
-		} else {
-			sha = getCommandOutput(bin, args...)
-		}
 		out := fmt.Sprintf("%s-%s-%s", currentUser.Username, sha, currentTime)
 		fmt.Println("out: ", out)
 		return out
@@ -96,7 +83,6 @@ func main() {
 	`}).Directory("/app")
 
 	sha := getSha("GIT_SHA")
-	fmt.Println("sha is: ", sha)
 
 	ref, err := client.Container().
 		From(baseImage).
