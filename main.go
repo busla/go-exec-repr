@@ -82,7 +82,7 @@ func main() {
 		echo $(node --version) > node-version.txt
 	`}).Directory("/app")
 
-	sha := getSha("GIT_SHA")
+	sha := getSha("GITHUB_SHA")
 
 	ref, err := client.Container().
 		From(baseImage).
